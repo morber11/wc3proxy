@@ -6,7 +6,7 @@ rm -rf dist tmp ./cli/obj ./cli/bin
 mkdir -p 'tmp' 'dist'
 
 # build wc3proxy cli
-dotnet publish cli --self-contained  --nologo -o dist
+dotnet publish cli/wc3proxy.csproj --self-contained  --nologo -o dist
 chmod +x dist/wc3proxy
 
 # create mac app

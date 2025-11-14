@@ -1,4 +1,71 @@
-bin
-obj
-.vscode
+# Build Folders
+bin/
+obj/
+
+# Visual Studio cache/options directories
+.vs/
+.vscode/
+*.code-workspace
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# IDE files
+/.idea/
+*.userprefs
+
+# OS generated files
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# NuGet
+**/packages/*
+!**/packages/build/**
+
+# dotnet core publish
+publish/
+
+# dotnet tools
+*.dotnet_tool_state.json
+
+# MSBuild binary and logs
+*.binlog
+
+# Test runner
+TestResults/
+
+# Generated files
+**/obj/**
+**/bin/**
+
+# Publish output
+dist/
+
+# Embedded CLI folder used during build
+gui/avalonia/EmbeddedCli/
+
+tmp/
+
+# Visual Studio Code workspace storage
+.vscode/
+
+# Logs
+*.log
+
+# NuGet v3
+.project.lock.json
+project.lock.json
+
+# Others
+*.nupkg
+*.snupkg
+*.cache
+*.db
+
+# Local history by some IDEs
+.localhistory/

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="wc3proxy.avalonia.LogWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="WC3 Proxy Log"
+    Width="700"
+    Height="420">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <TextBox
+            x:Name="LogBox"
+            Margin="4"
+            AcceptsReturn="True"
+            IsReadOnly="True"
+            TextWrapping="NoWrap" />
+    </ScrollViewer>
+</Window>
