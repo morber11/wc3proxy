@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="wc3proxy.avalonia.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="WC3 Proxy"
+    Width="600"
+    Height="170">
+
+    <StackPanel Margin="6" VerticalAlignment="Top">
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock VerticalAlignment="Center" Text="IP:" />
+            <TextBox
+                x:Name="IpBox"
+                Grid.Column="1"
+                Margin="6,0" />
+
+            <TextBlock
+                Grid.Row="1"
+                VerticalAlignment="Center"
+                Text="Version:" />
+            <TextBox
+                x:Name="VersionBox"
+                Grid.Row="1"
+                Grid.Column="1"
+                Width="80"
+                Margin="6,0" />
+
+            <StackPanel
+                Grid.Row="2"
+                Grid.ColumnSpan="2"
+                Margin="0,6,0,0"
+                Orientation="Horizontal">
+                <RadioButton x:Name="RoC" Content="RoC" />
+                <RadioButton
+                    x:Name="TFT"
+                    Margin="8,0"
+                    Content="TFT"
+                    IsChecked="True" />
+            </StackPanel>
+        </Grid>
+        <StackPanel
+            Margin="0,8,0,0"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                x:Name="StartBtn"
+                Margin="4,0"
+                Content="Start" />
+            <Button
+                x:Name="StopBtn"
+                Margin="4,0"
+                Content="Stop"
+                IsEnabled="False" />
+            <Button
+                x:Name="ShowLogBtn"
+                Margin="4,0"
+                Content="Show Log" />
+            <Button
+                x:Name="OpenSettingsBtn"
+                Margin="4,0"
+                Content="Open Settings File" />
+        </StackPanel>
+    </StackPanel>
+
+</Window>

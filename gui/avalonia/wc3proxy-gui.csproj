@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AssemblyName>wc3proxy-gui</AssemblyName>
+        <ApplicationIcon>..\..\media\wc3proxy.ico</ApplicationIcon>
+        <Win32Icon>..\..\media\wc3proxy.ico</Win32Icon>
+    </PropertyGroup>
+    <PropertyGroup>
+        <CliRuntime Condition="'$(CliRuntime)'=='' and '$(OS)'=='Windows_NT'">win-x64</CliRuntime>
+        <CliRuntimeArg Condition="'$(CliRuntime)' != ''">-r $(CliRuntime)</CliRuntimeArg>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\media\wc3proxy.ico" />
+        <PackageReference Include="Avalonia" Version="11.3.8" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.3.8" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.8" />
+    </ItemGroup>
+
+    <Target Name="PublishCliToOutput" AfterTargets="Build">
+        <Exec
+            Command="dotnet publish ..\..\cli\wc3proxy.csproj -c $(Configuration) $(CliRuntimeArg) -o $(OutputPath)\cli -p:SelfContained=true -p:PublishReadyToRun=false" />
+    </Target>
+
+    <ItemGroup>
+        <EmbeddedResource Include="EmbeddedCli\**\*">
+            <LogicalName>EmbeddedCli.%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+</Project>
