@@ -91,7 +91,7 @@ if (Test-Path $distExe) {
 	}
 }
 
-dotnet publish .\gui\avalonia\wc3proxy-gui.csproj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -p:PublishSingleFile=true -o $Dist
+dotnet publish .\gui\avalonia\wc3proxy-gui.csproj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -o $Dist
 
 Write-Host "Cleaning temporary files..."
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $embeddedDir, $TmpPublish
