@@ -24,7 +24,7 @@ foreach ($d in @($TmpPublish, $Dist)) {
 }
 
 Write-Host "Publishing CLI to temporary folder..."
-dotnet publish .\cli -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=false -o $TmpPublish
+dotnet publish .\cli\wc3proxy.csproj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:PublishReadyToRun=false -o $TmpPublish
 
 $publishedCli = Get-ChildItem -Path $TmpPublish -Filter "*.exe" -File | Where-Object { $_.Name -ieq 'wc3proxy.exe' } | Select-Object -First 1
 if ($null -eq $publishedCli) {

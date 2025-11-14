@@ -2,12 +2,19 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <AssemblyName>wc3proxy-gui</AssemblyName>
         <ApplicationIcon>..\..\media\wc3proxy.ico</ApplicationIcon>
         <Win32Icon>..\..\media\wc3proxy.ico</Win32Icon>
+    </PropertyGroup>
+    <PropertyGroup>
+        <SelfContained>true</SelfContained>
+        <PublishSingleFile>true</PublishSingleFile>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     </PropertyGroup>
     <PropertyGroup>
         <CliRuntime Condition="'$(CliRuntime)'=='' and '$(OS)'=='Windows_NT'">win-x64</CliRuntime>
