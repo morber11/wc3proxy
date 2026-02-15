@@ -1,11 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using System.IO;
-using System.Threading;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace wc3proxy.avalonia
@@ -15,16 +14,24 @@ namespace wc3proxy.avalonia
         private Process? proc;
         private LogWindow? logWindow;
         private CancellationTokenSource? outputCts;
-        private readonly string SettingsPath;
+        private readonly SettingsHelper settingsHelper;
 
-        private record UserSettings(string Ip, string Version, bool IsTft);
+        private const string DefaultIp = "1.0.0.1";
+        private const string DefaultVersion = "1.29";
+        private const string DefaultCliFileName = "wc3proxy.exe";
+        private const string ExpansionTft = "TFT";
+        private const string ExpansionRoc = "RoC";
+        private const string Wc3proxyToken = "wc3proxy";
+
+
+        private static readonly Regex VersionRegex = new(@"^1\.[23]\d$", RegexOptions.Compiled);
 
         public MainWindow()
         {
             InitializeComponent();
 
-            IpBox!.Text = "1.0.0.1";
-            VersionBox!.Text = "1.29";
+            IpBox!.Text = DefaultIp;
+            VersionBox!.Text = DefaultVersion;
 
             StartBtn!.Click += StartBtn_Click;
             StopBtn!.Click += StopBtn_Click;
@@ -32,29 +39,33 @@ namespace wc3proxy.avalonia
             OpenSettingsBtn!.Click += OpenSettingsBtn_Click;
 
             var exeDir = AppContext.BaseDirectory ?? AppDomain.CurrentDomain.BaseDirectory;
-            SettingsPath = Path.Combine(exeDir, "wc3proxy-gui-settings.json");
+            var settingsPath = Path.Combine(exeDir, SettingsHelper.SettingsFileName);
+            settingsHelper = new SettingsHelper(settingsPath);
 
-            LoadSettings();
-
-            this.Closing += (sender, e) =>
+            try
             {
-                try
+                var s = settingsHelper.Load();
+                if (s is not null)
                 {
-                    if (proc != null && !proc.HasExited)
-                    {
-                        StopProcess();
-                        try { proc?.WaitForExit(3000); } catch { }
-                    }
+                    IpBox!.Text = s.Ip ?? IpBox.Text;
+                    VersionBox!.Text = s.Version ?? VersionBox.Text;
 
-                    if (logWindow != null && !logWindow.IsClosed)
+                    if (s.IsTft)
                     {
-                        try { logWindow.Close(); } catch { }
+                        TFT!.IsChecked = true;
+                    }
+                    else
+                    {
+                        RoC!.IsChecked = true;
                     }
                 }
-                catch { }
+            }
+            catch (Exception ex)
+            {
+                LogError("load settings", ex);
+            }
 
-                try { SaveSettings(); } catch { }
-            };
+            Closing += OnMainWindowClosing;
 
             IpBox!.LostFocus += (_, __) => SaveSettings();
             VersionBox!.LostFocus += (_, __) => SaveSettings();
@@ -66,14 +77,9 @@ namespace wc3proxy.avalonia
         {
             try
             {
-                if (!File.Exists(SettingsPath))
-                {
-                    var s = new UserSettings(IpBox!.Text ?? string.Empty, VersionBox!.Text ?? string.Empty, TFT!.IsChecked == true);
-                    var json = JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(SettingsPath, json);
-                }
-
-                var psi = new ProcessStartInfo { FileName = SettingsPath, UseShellExecute = true };
+                var s = new SettingsHelper.UserSettings(IpBox!.Text ?? string.Empty, VersionBox!.Text ?? string.Empty, TFT!.IsChecked == true);
+                settingsHelper.EnsureExists(s);
+                var psi = new ProcessStartInfo { FileName = settingsHelper.Path, UseShellExecute = true };
                 Process.Start(psi);
             }
             catch (Exception ex)
@@ -84,10 +90,11 @@ namespace wc3proxy.avalonia
 
         private void ShowLogBtn_Click(object? sender, RoutedEventArgs? e)
         {
-            if (logWindow == null || logWindow.IsClosed)
+            if (logWindow is null || logWindow.IsClosed)
             {
                 logWindow = new LogWindow();
             }
+
             logWindow.Show();
             logWindow.Activate();
         }
@@ -95,19 +102,7 @@ namespace wc3proxy.avalonia
         private void StopBtn_Click(object? sender, RoutedEventArgs e)
         {
             StopProcess();
-
-            try
-            {
-                var lw = logWindow;
-                if (lw != null && !lw.IsClosed)
-                {
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        try { lw.Close(); } catch { }
-                    });
-                }
-            }
-            catch { }
+            CloseLogWindow();
         }
 
         private void StartBtn_Click(object? sender, RoutedEventArgs e)
@@ -118,7 +113,7 @@ namespace wc3proxy.avalonia
             if (!IsValidIP(ipText)) { ShowMessage("Invalid IP"); return; }
             if (!IsValidVersion(versionText)) { ShowMessage("Invalid Version"); return; }
 
-            var expansion = (TFT?.IsChecked == true) ? "TFT" : "RoC";
+            var expansion = (TFT?.IsChecked == true) ? ExpansionTft : ExpansionRoc;
 
             var binary = TryExtractEmbeddedCli();
             if (string.IsNullOrEmpty(binary) || !File.Exists(binary))
@@ -128,7 +123,6 @@ namespace wc3proxy.avalonia
             }
 
             StartProcess(binary, ipText.Trim(), versionText.Trim(), expansion);
-
             ShowLogBtn_Click(null, null);
         }
 
@@ -149,7 +143,9 @@ namespace wc3proxy.avalonia
                     var lower = name.ToLowerInvariant();
 
                     if (!(lower.Contains("embeddedcli") || lower.EndsWith(".exe")))
+                    {
                         continue;
+                    }
 
                     // skip any resource that appears to be the GUI assembly
                     if (!string.IsNullOrEmpty(asmName) && lower.Contains(asmName))
@@ -157,14 +153,14 @@ namespace wc3proxy.avalonia
                         continue;
                     }
 
-                    if (!lower.Contains("wc3proxy") || !lower.EndsWith(".exe"))
+                    if (!lower.Contains(Wc3proxyToken) || !lower.EndsWith(".exe"))
                     {
                         continue;
                     }
 
                     string fileName;
                     var tokens = name.Split('.');
-                    var idx = Array.FindIndex(tokens, t => string.Equals(t, "wc3proxy", StringComparison.OrdinalIgnoreCase));
+                    var idx = Array.FindIndex(tokens, t => string.Equals(t, Wc3proxyToken, StringComparison.OrdinalIgnoreCase));
                     var ext = tokens.Last();
 
                     if (idx >= 0)
@@ -173,7 +169,7 @@ namespace wc3proxy.avalonia
                     }
                     else if (tokens.Length >= 2)
                     {
-                        fileName = tokens[tokens.Length - 2] + "." + ext;
+                        fileName = tokens[^2] + "." + ext;
                     }
                     else
                     {
@@ -182,79 +178,44 @@ namespace wc3proxy.avalonia
 
                     if (string.IsNullOrEmpty(fileName))
                     {
-                        fileName = "wc3proxy.exe";
+                        fileName = DefaultCliFileName;
                     }
 
                     var outPath = Path.Combine(Path.GetTempPath(), fileName);
 
                     using (var res = asm.GetManifestResourceStream(name))
                     {
-                        if (res == null)
+                        if (res is null)
                         {
                             continue;
                         }
 
-                        using (var fs = File.Create(outPath))
-                        {
-                            res.CopyTo(fs);
-                        }
-                    }
-
-                    if (!OperatingSystem.IsWindows())
-                    {
-                        try
-                        {
-                            var chmod = new ProcessStartInfo { FileName = "chmod", Arguments = $"+x \"{outPath}\"", UseShellExecute = false, CreateNoWindow = true };
-                            Process.Start(chmod)?.WaitForExit();
-                        }
-                        catch { }
+                        using var fs = File.Create(outPath);
+                        res.CopyTo(fs);
                     }
 
                     return outPath;
                 }
             }
-            catch { }
-            return null;
-        }
-
-        private void LoadSettings()
-        {
-            try
+            catch (Exception ex)
             {
-                if (File.Exists(SettingsPath))
-                {
-                    var json = File.ReadAllText(SettingsPath);
-                    var s = JsonSerializer.Deserialize<UserSettings>(json);
-
-                    if (s != null)
-                    {
-                        IpBox!.Text = s.Ip ?? IpBox.Text;
-                        VersionBox!.Text = s.Version ?? VersionBox.Text;
-
-                        if (s.IsTft)
-                        {
-                            TFT!.IsChecked = true;
-                        }
-                        else
-                        {
-                            RoC!.IsChecked = true;
-                        }
-                    }
-                }
+                LogError("extract embedded cli", ex);
             }
-            catch { }
+
+            return null;
         }
 
         private void SaveSettings()
         {
             try
             {
-                var s = new UserSettings(IpBox!.Text ?? string.Empty, VersionBox!.Text ?? string.Empty, TFT!.IsChecked == true);
-                var json = JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true });
-
-                File.WriteAllText(SettingsPath, json);
+                var s = new SettingsHelper.UserSettings(IpBox!.Text ?? string.Empty, VersionBox!.Text ?? string.Empty, TFT!.IsChecked == true);
+                settingsHelper.Save(s);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogError("save settings", ex);
+            }
         }
 
         private async Task ReadStreamAsync(TextReader reader, CancellationToken ct)
@@ -263,20 +224,20 @@ namespace wc3proxy.avalonia
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    var line = await reader.ReadLineAsync();
+                    var line = await reader.ReadLineAsync(ct);
 
-                    if (line == null) 
+                    if (line is null)
                     {
                         break;
                     }
-                    
+
                     AppendLogLine(line + Environment.NewLine);
                 }
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                AppendLogLine("[reader error] " + ex.Message + Environment.NewLine);
+                LogError("reader", ex);
             }
         }
 
@@ -303,8 +264,7 @@ namespace wc3proxy.avalonia
                 };
 
                 proc.Start();
-
-                try { outputCts?.Cancel(); } catch { }
+                CancelOutputReaders();
 
                 outputCts = new CancellationTokenSource();
                 var token = outputCts.Token;
@@ -315,17 +275,7 @@ namespace wc3proxy.avalonia
                 var outTask = ReadStreamAsync(outReader, token);
                 var errTask = ReadStreamAsync(errReader, token);
 
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.WhenAll(outTask, errTask);
-                    }
-                    catch (Exception ex)
-                    {
-                        AppendLogLine("[reader tasks error] " + ex.Message + Environment.NewLine);
-                    }
-                });
+                _ = Task.WhenAll(outTask, errTask);
 
                 Dispatcher.UIThread.Post(() => { StartBtn!.IsEnabled = false; StopBtn!.IsEnabled = true; ShowLogBtn!.IsEnabled = true; });
             }
@@ -339,12 +289,12 @@ namespace wc3proxy.avalonia
         {
             try
             {
-                try { outputCts?.Cancel(); } catch { }
+                CancelOutputReaders();
 
-                if (proc != null && !proc.HasExited)
+                if (proc is not null && !proc.HasExited)
                 {
                     proc.Kill(true);
-                    try { proc.WaitForExit(3000); } catch { }
+                    WaitForExit(proc, 3000);
                 }
             }
             catch (Exception ex)
@@ -356,7 +306,7 @@ namespace wc3proxy.avalonia
         private void AppendLogLine(string s)
         {
             var lw = logWindow;
-            if (lw == null || lw.IsClosed) 
+            if (lw is null || lw.IsClosed)
             {
                 return;
             }
@@ -364,32 +314,83 @@ namespace wc3proxy.avalonia
             Dispatcher.UIThread.Post(() => lw.AppendText(s));
         }
 
-        bool IsValidIP(string? s)
+        private void OnMainWindowClosing(object? sender, WindowClosingEventArgs e)
         {
-            if (string.IsNullOrEmpty(s)) 
-            {
-                return false;
-            }
-
-            var ipnum = "(\\d|[1-9]\\d|1\\d\\d|2[0-4]\\d|25[0-5])";
-            var fullExp = $"^{ipnum}\\.{ipnum}\\.{ipnum}\\.{ipnum}$";
-
-            return Regex.IsMatch(s, fullExp);
+            StopProcess();
+            CloseLogWindow();
+            SaveSettings();
         }
 
-        bool IsValidVersion(string? s)
+        private void CloseLogWindow()
         {
-            if (string.IsNullOrEmpty(s)) 
+            var lw = logWindow;
+            if (lw is null || lw.IsClosed)
+            {
+                return;
+            }
+
+            try
+            {
+                lw.Close();
+            }
+            catch (Exception ex)
+            {
+                LogError("log window close", ex);
+            }
+        }
+
+        private void CancelOutputReaders()
+        {
+            try
+            {
+                outputCts?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // already disposed - ignore
+            }
+        }
+
+        private void WaitForExit(Process process, int milliseconds)
+        {
+            try
+            {
+                process.WaitForExit(milliseconds);
+            }
+            catch (Exception ex)
+            {
+                LogError("wait-for-exit", ex);
+            }
+        }
+
+        private void LogError(string context, Exception ex)
+        {
+            AppendLogLine($"[{context} error] {ex.Message}{Environment.NewLine}");
+        }
+
+        static bool IsValidIP(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s))
             {
                 return false;
             }
 
-            var full = new Regex("^1\\.[23]\\d$");
+            if (IPAddress.TryParse(s.Trim(), out var addr))
+            {
+                return addr.AddressFamily == AddressFamily.InterNetwork; // IPv4 only
+            }
 
-            return full.IsMatch(s);
+            return false;
+        }
+
+        static bool IsValidVersion(string? s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return false;
+            }
+
+            return VersionRegex.IsMatch(s);
         }
     }
 }
-
-
-

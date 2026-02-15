@@ -38,7 +38,7 @@ namespace wc3proxy.avalonia
 
             dialog.Closed += (_, __) => { if (!tcs.Task.IsCompleted) tcs.TrySetResult(false); };
 
-            // show dialog without awaiting — callers will await the Task returned here
+            // show dialog without awaiting - callers will await the Task returned here
             if (parent is not null)
             {
                 _ = dialog.ShowDialog(parent);
@@ -66,8 +66,10 @@ namespace wc3proxy.avalonia
 
             var panel = new StackPanel { Margin = new Thickness(10) };
             panel.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
+
             var btn = new Button { Content = "OK", Width = 80, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
             btn.Click += (_, __) => { if (!tcs.Task.IsCompleted) tcs.TrySetResult(true); dialog.Close(); };
+
             panel.Children.Add(btn);
 
             dialog.Content = panel;
@@ -81,7 +83,7 @@ namespace wc3proxy.avalonia
             {
                 dialog.Show();
             }
-            
+
             return tcs.Task;
         }
     }

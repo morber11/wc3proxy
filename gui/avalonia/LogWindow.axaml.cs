@@ -9,7 +9,7 @@ namespace wc3proxy.avalonia
         public LogWindow()
         {
             InitializeComponent();
-            this.Closed += (_, _) => IsClosed = true;
+            Closed += (_, _) => IsClosed = true;
         }
 
         public void AppendText(string s)
